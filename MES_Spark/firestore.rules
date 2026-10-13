@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function profile() { return get(/databases/$(database)/documents/mes_usuarios/$(request.auth.uid)).data; }
+  function member() { return request.auth != null && profile().enabled == true && profile().role in ['admin','operario'] && request.auth.token.auth_time >= profile().validAfter; }
+  function admin() { return member() && profile().role == 'admin'; }
+  function pending(p) { return p is list && p.size() > 0 && p.size() <= 20 && (p.size() <= 0 || (p[0].estado == 'Pendiente' && p[0].machineKey is string && p[0].operatorKey is string))
+ && (p.size() <= 1 || (p[1].estado == 'Pendiente' && p[1].machineKey is string && p[1].operatorKey is string))
+ && (p.size() <= 2 || (p[2].estado == 'Pendiente' && p[2].machineKey is string && p[2].operatorKey is string))
+ && (p.size() <= 3 || (p[3].estado == 'Pendiente' && p[3].machineKey is string && p[3].operatorKey is string))
+ && (p.size() <= 4 || (p[4].estado == 'Pendiente' && p[4].machineKey is string && p[4].operatorKey is string))
+ && (p.size() <= 5 || (p[5].estado == 'Pendiente' && p[5].machineKey is string && p[5].operatorKey is string))
+ && (p.size() <= 6 || (p[6].estado == 'Pendiente' && p[6].machineKey is string && p[6].operatorKey is string))
+ && (p.size() <= 7 || (p[7].estado == 'Pendiente' && p[7].machineKey is string && p[7].operatorKey is string))
+ && (p.size() <= 8 || (p[8].estado == 'Pendiente' && p[8].machineKey is string && p[8].operatorKey is string))
+ && (p.size() <= 9 || (p[9].estado == 'Pendiente' && p[9].machineKey is string && p[9].operatorKey is string))
+ && (p.size() <= 10 || (p[10].estado == 'Pendiente' && p[10].machineKey is string && p[10].operatorKey is string))
+ && (p.size() <= 11 || (p[11].estado == 'Pendiente' && p[11].machineKey is string && p[11].operatorKey is string))
+ && (p.size() <= 12 || (p[12].estado == 'Pendiente' && p[12].machineKey is string && p[12].operatorKey is string))
+ && (p.size() <= 13 || (p[13].estado == 'Pendiente' && p[13].machineKey is string && p[13].operatorKey is string))
+ && (p.size() <= 14 || (p[14].estado == 'Pendiente' && p[14].machineKey is string && p[14].operatorKey is string))
+ && (p.size() <= 15 || (p[15].estado == 'Pendiente' && p[15].machineKey is string && p[15].operatorKey is string))
+ && (p.size() <= 16 || (p[16].estado == 'Pendiente' && p[16].machineKey is string && p[16].operatorKey is string))
+ && (p.size() <= 17 || (p[17].estado == 'Pendiente' && p[17].machineKey is string && p[17].operatorKey is string))
+ && (p.size() <= 18 || (p[18].estado == 'Pendiente' && p[18].machineKey is string && p[18].operatorKey is string))
+ && (p.size() <= 19 || (p[19].estado == 'Pendiente' && p[19].machineKey is string && p[19].operatorKey is string)); }
+  function inactive(p) { return p is list && p.size() <= 20 && (p.size() <= 0 || (p[0].estado != 'En proceso'))
+ && (p.size() <= 1 || (p[1].estado != 'En proceso'))
+ && (p.size() <= 2 || (p[2].estado != 'En proceso'))
+ && (p.size() <= 3 || (p[3].estado != 'En proceso'))
+ && (p.size() <= 4 || (p[4].estado != 'En proceso'))
+ && (p.size() <= 5 || (p[5].estado != 'En proceso'))
+ && (p.size() <= 6 || (p[6].estado != 'En proceso'))
+ && (p.size() <= 7 || (p[7].estado != 'En proceso'))
+ && (p.size() <= 8 || (p[8].estado != 'En proceso'))
+ && (p.size() <= 9 || (p[9].estado != 'En proceso'))
+ && (p.size() <= 10 || (p[10].estado != 'En proceso'))
+ && (p.size() <= 11 || (p[11].estado != 'En proceso'))
+ && (p.size() <= 12 || (p[12].estado != 'En proceso'))
+ && (p.size() <= 13 || (p[13].estado != 'En proceso'))
+ && (p.size() <= 14 || (p[14].estado != 'En proceso'))
+ && (p.size() <= 15 || (p[15].estado != 'En proceso'))
+ && (p.size() <= 16 || (p[16].estado != 'En proceso'))
+ && (p.size() <= 17 || (p[17].estado != 'En proceso'))
+ && (p.size() <= 18 || (p[18].estado != 'En proceso'))
+ && (p.size() <= 19 || (p[19].estado != 'En proceso')); }
+  function priorFinished(p,idx) { return (idx <= 0 || p[0].estado == 'Terminado')
+ && (idx <= 1 || p[1].estado == 'Terminado')
+ && (idx <= 2 || p[2].estado == 'Terminado')
+ && (idx <= 3 || p[3].estado == 'Terminado')
+ && (idx <= 4 || p[4].estado == 'Terminado')
+ && (idx <= 5 || p[5].estado == 'Terminado')
+ && (idx <= 6 || p[6].estado == 'Terminado')
+ && (idx <= 7 || p[7].estado == 'Terminado')
+ && (idx <= 8 || p[8].estado == 'Terminado')
+ && (idx <= 9 || p[9].estado == 'Terminado')
+ && (idx <= 10 || p[10].estado == 'Terminado')
+ && (idx <= 11 || p[11].estado == 'Terminado')
+ && (idx <= 12 || p[12].estado == 'Terminado')
+ && (idx <= 13 || p[13].estado == 'Terminado')
+ && (idx <= 14 || p[14].estado == 'Terminado')
+ && (idx <= 15 || p[15].estado == 'Terminado')
+ && (idx <= 16 || p[16].estado == 'Terminado')
+ && (idx <= 17 || p[17].estado == 'Terminado')
+ && (idx <= 18 || p[18].estado == 'Terminado'); }
+  function owns(key,id,idx) { let d=getAfter(/databases/$(database)/documents/mes_recursos/$(key)).data; return d.orden == id && d.idx == idx; }
+  function free(key) { return getAfter(/databases/$(database)/documents/mes_recursos/$(key)).data.orden == null; }
+  function changedStep(id) {
+   let a=resource.data; let b=request.resource.data; let idx=b.cambio.idx;
+   let p=a.pasos[idx]; let q=b.pasos[idx];
+   return member() && idx is int && idx >= 0 && idx < a.pasos.size() && a.pasos.size() <= 20
+    && b.cambio.actor == request.auth.uid && b.cambio.when == request.time
+    && (profile().role == 'admin' || p.asignadoA == profile().nombre)
+    && priorFinished(a.pasos,idx)
+    && b.diff(a).affectedKeys().hasOnly(['pasos','estado','fechaFin','cambio'])
+    && b.pasos.size() == a.pasos.size()
+    && a.pasos.removeAll([p]).size() == a.pasos.size()-1
+    && b.pasos.removeAll([q]).size() == b.pasos.size()-1
+    && a.pasos.removeAll([p]) == b.pasos.removeAll([q])
+    && q.diff(p).affectedKeys().hasOnly(['estado','horaInicio','tiempoAcumulado','notes','legajo','firmaDigital','fechaFirma','firmaUid','instrumentosVerificadosTaller'])
+    && (
+      (b.cambio.accion == 'instrumento' && p.estado == 'En proceso' && q.diff(p).affectedKeys().hasOnly(['instrumentosVerificadosTaller']) && q.instrumentosVerificadosTaller is list && q.instrumentosVerificadosTaller.toSet().hasOnly(p.instrumentos) && b.estado == a.estado)
+      || (b.cambio.accion == 'estado' && (
+       (p.estado in ['Pendiente','Pausado'] && q.estado == 'En proceso'
+        && q.diff(p).affectedKeys().hasOnly(['estado','horaInicio'])
+        && q.horaInicio is number && q.horaInicio >= request.time.toMillis()-60000 && q.horaInicio <= request.time.toMillis()+60000
+        && owns(p.machineKey,id,idx) && owns(p.operatorKey,id,idx))
+       || (p.estado == 'En proceso' && q.estado in ['Pausado','Terminado'] && q.horaInicio == null
+        && q.tiempoAcumulado is number && q.tiempoAcumulado >= p.tiempoAcumulado
+        && q.tiempoAcumulado <= p.tiempoAcumulado + request.time.toMillis() - p.horaInicio + 60000
+        && q.notes is string && q.notes.size() <= 2000
+        && (q.estado == 'Pausado' || (q.firmaUid == request.auth.uid && q.firmaDigital == profile().nombre && q.legajo is string && q.legajo.size()>0))
+        && free(p.machineKey) && free(p.operatorKey))
+      ) && b.estado == ((idx == a.pasos.size()-1 && q.estado == 'Terminado') ? 'Terminado' : 'En proceso'))
+    );
+  }
+  match /mes_usuarios/{uid} {
+   allow get: if request.auth != null && (request.auth.uid == uid || admin());
+   allow list: if admin();
+   allow write: if false;
+  }
+  match /ordenes_veng/{id} {
+   allow read: if member();
+   allow create: if admin() && pending(request.resource.data.pasos) && request.resource.data.estado == 'Pendiente';
+   allow update: if (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ot','pos','nPlano','cliente','proyecto','area','producto','material','cantidad','fecha','notes','archivoAdjuntoData']))
+    || (admin() && pending(resource.data.pasos) && pending(request.resource.data.pasos) && request.resource.data.estado == 'Pendiente')
+    || changedStep(id);
+   allow delete: if admin() && inactive(resource.data.pasos);
+  }
+  match /mes_recursos/{key} {
+   function target() { let d=request.resource.data; return getAfter(/databases/$(database)/documents/ordenes_veng/$(d.orden)).data; }
+   function claim() {
+    let d=request.resource.data; let o=target(); let p=o.pasos[d.idx];
+    return d.keys().hasOnly(['orden','idx']) && p.estado == 'En proceso' && (p.machineKey == key || p.operatorKey == key)
+     && o.cambio.actor == request.auth.uid && o.cambio.when == request.time;
+   }
+   function release() {
+    let d=resource.data; let o=getAfter(/databases/$(database)/documents/ordenes_veng/$(d.orden)).data;
+    return request.resource.data.keys().hasOnly(['orden','idx']) && request.resource.data.orden == null && request.resource.data.idx == null
+     && o.pasos[d.idx].estado != 'En proceso' && o.cambio.actor == request.auth.uid && o.cambio.when == request.time;
+   }
+   allow read: if member();
+   allow create: if member() && claim();
+   allow update: if member() && ((resource.data.orden == null && claim()) || (resource.data.orden != null && release()));
+   allow delete: if false;
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
+}

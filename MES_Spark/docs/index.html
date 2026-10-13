@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VENG - Sistema de Hoja de Ruta Digital</title>
+    <link rel="stylesheet" href="vendor/pico.min.css">
+    
+    <script src="vendor/firebase-app-compat.js"></script>
+    <script src="vendor/firebase-firestore-compat.js"></script>
+    <script src="vendor/firebase-auth-compat.js"></script>
+    
+    <script src="vendor/o3dv.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #268bd2;
+        }
+        @keyframes parpadeoAlerta {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .alerta-hoy {
+            animation: parpadeoAlerta 1.2s infinite ease-in-out;
+            background-color: #d9411e !important;
+            color: white !important;
+        }
+        .badge-fecha {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: inline-block;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+        .header-taller {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        #pantallaLogin {
+            max-width: 500px;
+            margin: 80px auto;
+            padding: 30px;
+            background-color: #1a242f;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn-usuario {
+            margin-bottom: 12px;
+            text-align: left;
+            padding-left: 20px;
+        }
+        .bloque-nota {
+            display: block;
+            margin-top: 6px;
+            background-color: #232e3c;
+            padding: 6px 10px;
+            border-left: 4px solid #cb4b16;
+            color: #e2e8f0;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.8rem;
+        }
+        .contenedor-ruta-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+        }
+        .paso-card-visual {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .paso-card-visual.en-proceso { border-left: 5px solid #268bd2; background-color: #14253d; }
+        .paso-card-visual.pausado { border-left: 5px solid #cb4b16; }
+        .paso-card-visual.terminado { border-left: 5px solid #2aa198; opacity: 0.7; }
+        .paso-card-visual.pendiente { border-left: 5px solid #64748b; }
+
+        .instrumentos-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+            background: #0f172a;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .instrumento-tag {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+        .instrumento-tag.checked {
+            color: #38bdf8;
+            font-weight: bold;
+        }
+        .fila-paso-form {
+            background: #141e26;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #268bd2;
+        }
+        dialog article {
+            background-color: #1a242f !important;
+            border: 1px solid #334155;
+        }
+        #placeholderVisor {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #0f172a;
+            color: #64748b;
+            z-index: 10;
+            pointer-events: none;
+            padding: 20px;
+            text-align: center;
+        }
+        [hidden] { display:none !important; }
+        .kanban-maquinas { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+        .columna-maquina { background:#141e26; border:1px solid #334155; border-radius:10px; padding:16px; min-width:0; }
+        .columna-maquina h3 { font-size:1.1rem; margin-bottom:10px; }
+        .tarjeta-carga { padding:12px; margin:10px 0; border:1px solid #334155; border-left:4px solid #64748b; border-radius:6px; overflow-wrap:anywhere; }
+        .tarjeta-carga.ejecucion { border-left-color:#38bdf8; }
+        .tarjeta-carga.pausa { border-left-color:#f59e0b; }
+        .tarjeta-carga.lista { border-left-color:#2aa198; }
+        .tarjeta-carga small { display:block; }
+    </style>
+<link rel="icon" href="data:image/png;base64,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">
+</head>
+<body>
+
+    <div id="pantallaLogin">
+        <h2><img src="data:image/png;base64,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" alt="" style="width:95px;height:41px;object-fit:contain;vertical-align:middle;margin-right:8px;">VENG - Control de Planta</h2>
+        <p style="color: gray;">Ingresá con tu usuario del taller</p>
+        <button type="button" onclick="mostrarBibliotecaLocal()">📁 Copias antiguas de este dispositivo</button>
+<p id="estadoAcceso" role="status">Ingresá con tu usuario y contraseña.</p>
+<form onsubmit="confirmarIngreso(event)"><label>Usuario<input id="usuarioIngreso" autocomplete="username" pattern="[a-zA-Z0-9._-]{3,32}" required placeholder="Ej.: mramirez"></label><label>Contraseña<input id="claveIngreso" type="password" autocomplete="current-password" required maxlength="128"></label><button type="submit">Ingresar</button></form><small>Si olvidaste la contraseña, solicitá su restablecimiento a Oficina Técnica.</small>
+    </div>
+
+    <main class="container-fluid" id="pantallaPrincipal" style="padding: 20px; display: none;">
+        
+        <div class="header-taller">
+            <div>
+                <h1>Sistema MES Fabricaciones</h1>
+                <p style="margin: 0; color: #268bd2;">Usuario activo: <strong id="nombreUsuarioActivo">---</strong></p>
+            </div>
+            <div>
+                <button class="outline contrast" onclick="cerrarSesion()" style="width: auto; padding: 5px 15px; margin: 0;">Cerrar Sesión</button>
+            </div>
+        </div>
+        <hr>
+        
+        <nav aria-label="Pantallas"><button id="btnUsuariosClaves" hidden type="button" onclick="abrirUsuariosClaves()">Accesos de usuarios</button><button type="button" onclick="cambiarPantallaMES(false)">Hojas de ruta</button><button type="button" onclick="cambiarPantallaMES(true)">Carga de máquinas · Kanban</button></nav>
+        <section id="pantallaCargas" hidden>
+          <h2>Carga de máquinas y puestos</h2>
+          <p>Operaciones abiertas por recurso. Listas = operaciones cuya etapa anterior terminó. La cantidad de operaciones no equivale a horas de carga ni a porcentaje de ocupación.</p>
+          <div class="grid"><label>Máquina o puesto<select id="filtroMaquinaCarga" onchange="renderCargas()"><option value="">Todos</option></select></label><label>Buscar OT, pieza u operario<input id="buscarCarga" type="search" oninput="renderCargas()"></label></div>
+          <label><input type="checkbox" id="incluirLibres" onchange="renderCargas()"> Mostrar también recursos sin operaciones abiertas</label>
+          <p id="resumenCargas" aria-live="polite"></p><div id="tableroCargas"></div>
+        </section>
+        <div id="pantallaRutas">
+        <section id="seccionFormulario">
+            <h3 id="tituloFormulario"> Hoja de Ruta - Planificación </h3>
+            <form id="formularioOrden" onsubmit="event.preventDefault(); guardarOrden();">
+                
+                <div class="grid">
+                    <label>OT (Orden de Trabajo)
+                        <input type="text" id="ot" placeholder="Ej: 1014" required>
+                    </label>
+                    <label>POS (Posición)
+                        <input type="text" id="pos" placeholder="Ej: 001" required>
+                    </label>
+                    <label>Nº Plano / Parte
+                        <input type="text" id="nPlano" placeholder="Ej: s/n o Código de plano" required>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>Solicitante / Cliente
+                        <input type="text" id="cliente" placeholder="Ej: Bianchi Carlos Roberto" required>
+                    </label>
+                    <label>Proyecto
+                        <input type="text" id="proyecto" placeholder="Ej: Corrección cabezal / N/A" required>
+                    </label>
+                    <label>Área
+                        <input type="text" id="area" placeholder="Ej: Comercial / Manufactura" required>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>Denominación de la Pieza
+                        <input type="text" id="producto" placeholder="Ej: Eje motriz" required>
+                    </label>
+                    <label>Material (Calidad)
+                        <input type="text" id="material" placeholder="Ej: Fundición / SAE 4140" required>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>Cantidad
+                        <input type="number" id="cantidad" placeholder="1" min="1" required>
+                    </label>
+                    <label>Fecha Límite de Entrega
+                        <input type="date" id="fecha" required>
+                    </label>
+                </div>
+
+                <div style="background-color: #1a242f; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap:12px; flex-wrap:wrap;">
+                        <h4 style="margin: 0; color: #268bd2;">📋 Secuencia Operacional (Ruta)</h4>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="outline" style="width:auto;margin:0;padding:4px 12px" onclick="abrirAdjuntosRuta()">📎 Adjuntar archivos</button><button type="button" class="button" style="width: auto; padding: 4px 12px; margin:0;" onclick="agregarFilaPaso()">➕ Agregar Operación</button></div>
+                    </div>
+                    <div id="contenedorPasosForm"></div>
+                </div>
+
+                <div class="grid">
+                    <label>Observaciones Iniciales
+                        <input type="text" id="notes" placeholder="Escribir aquí instrucciones generales para la planta...">
+                    </label>
+
+                </div>
+                
+                <div style="display: flex; gap: 12px; margin-top: 15px;">
+                    <button type="submit" id="btnFormulario" style="margin: 0; flex: 1;">Emitir Hoja de Ruta</button>
+                    <button type="button" class="outline contrast" style="margin: 0; width: auto; padding: 0 25px;" onclick="imprimirDesdeFormulario()">🖨️ Imprimir Hoja</button>
+                </div>
+            </form>
+        </section>
+
+        <section style="margin-top: 30px; margin-bottom: 30px; background-color: #1a242f; padding: 15px; border-radius: 8px;">
+            <div class="grid" style="margin-bottom: 0;">
+                <div>
+                    <label for="buscadorCliente" style="font-weight: bold;">🔍 Filtrar por Cliente/Solicitante:</label>
+                    <input type="search" id="buscadorCliente" placeholder="Escribe para buscar..." oninput="mostrarTablas()">
+                </div>
+                <div>
+                    <label for="buscadorOT" style="font-weight: bold;">🔢 Filtrar por OT:</label>
+                    <input type="search" id="buscadorOT" placeholder="Buscar por número de OT..." oninput="mostrarTablas()">
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h3>📋 Hojas de Ruta Activas en Planta</h3>
+            <figure>
+                <table role="grid">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">OT / POS</th>
+                            <th style="width: 180px;">Cliente / Plano</th>
+                            <th>Denominación de Pieza y Hoja de Ruta Activa</th>
+                            <th style="width: 80px;">Cant.</th>
+                            <th style="width: 140px;">Plazo Entrega</th>
+                            <th style="width: 150px;">Estado Actual</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDeOrdenes"></tbody>
+                </table>
+            </figure>
+        </section>
+
+        <section style="margin-top: 50px;">
+            <h3>📦 Historial de Trabajos Finalizados (Entregados)</h3>
+            <figure>
+                <table role="grid" style="background-color: #141e26;">
+                    <thead>
+                        <tr>
+                            <th>OT / POS</th>
+                            <th>Cliente / Plano</th>
+                            <th>Denominación de Pieza / Ruta Ejecutada</th>
+                            <th>Cant.</th>
+                            <th>Fecha Fin</th>
+                            <th>Tiempos Totales</th>
+                            <th id="columnaAccionesHistorial">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaHistorial"></tbody>
+                </table>
+            </figure>
+        </section>
+        </div>
+    </main>
+
+<dialog id="modalUsuariosClaves"><article><h3>Accesos · Firebase Spark</h3><p>Las cuentas y el restablecimiento de contraseñas se administran en la consola de Firebase por el responsable del proyecto. No hay contraseñas guardadas en Firestore.</p><p>Para deshabilitar inmediatamente un acceso, cambiá enabled a false en su perfil mes_usuarios, además de deshabilitar la cuenta en Authentication.</p><a href="https://console.firebase.google.com/project/sgi-v01/authentication/users" target="_blank" rel="noopener noreferrer">Abrir Firebase Authentication</a><p><a href="GUIA.html" target="_blank" rel="noopener">Consultar la guía incluida en el ZIP</a></p><button onclick="document.getElementById('modalUsuariosClaves').close()">Cerrar</button></article></dialog>
+<dialog id="modalAdjuntosRuta" aria-labelledby="tituloAdjuntosRuta"><article style="width:760px;max-width:95vw"><header><h3 id="tituloAdjuntosRuta">Adjuntar archivos</h3><p id="contextoAdjunto"></p></header>
+ <label for="archivoAdjunto">Seleccionar plano o modelo<input type="file" id="archivoAdjunto" form="formularioOrden" accept=".pdf,.step,.stp,.stl" onchange="actualizarResumenAdjunto()"></label>
+ <label for="revisionAdjunto">Revisión<input id="revisionAdjunto" form="formularioOrden" placeholder="Ej.: Rev. 02"></label>
+ <small id="infoArchivoEdicion" style="color:#38bdf8;display:none"></small><p id="resumenAdjunto" role="status"></p>
+ <p>PDF, STEP, STP o STL · Hasta 200 MiB por archivo. Un adjunto principal por OT/POS. Elegí el original desde la carpeta compartida. Al guardar la hoja de ruta se envía solamente su referencia a Firebase, no el contenido. No se crea una copia persistente en el navegador. En otra PC o después de recargar deberás seleccionar el original nuevamente; se comprobará su revisión por contenido. Modelos complejos pueden superar la memoria del equipo.</p>
+ <div class="grid"><button type="button" class="outline" onclick="previsualizarAdjuntoRuta()">Ver archivo</button><button type="button" class="outline" onclick="document.getElementById('modalAdjuntosRuta').close();mostrarBibliotecaLocal()">Copias antiguas y respaldos</button></div>
+ <footer><button type="button" onclick="document.getElementById('modalAdjuntosRuta').close()">Listo · Volver a operaciones</button></footer></article></dialog>
+<dialog id="modalLocales"><article style="width:1000px;max-width:95vw"><header><button onclick="document.getElementById('modalLocales').close()">Cerrar biblioteca</button><h2>Planos de este dispositivo</h2></header><p id="estadoLocales" role="status"></p><p>SharePoint: elegí el archivo desde una carpeta sincronizada o descargalo primero. Las copias no se actualizan automáticamente.</p><form id="formLocal" onsubmit="agregarLocalManual(event)"><div class="grid"><label>OT<input name="otLocal" required></label><label>POS<input name="posLocal" required></label><label>Revisión<input name="revision"></label></div><input name="plano" type="file" accept=".pdf,.stp,.step,.stl" required><button>Guardar copia local</button></form><div class="grid"><button onclick="solicitarPersistencia()">Solicitar conservación</button><button onclick="exportarLocales()">Exportar respaldo</button><label>Importar respaldo<input type="file" accept=".json" onchange="importarLocales(this)"></label></div><p>El respaldo contiene planos, no las órdenes de Firebase. Usá siempre la misma dirección, navegador y perfil para encontrar tus copias.</p><div id="listaLocales"></div></article></dialog>
+    <dialog id="modalVisor3D">
+      <article style="max-width: 95%; width: 1300px; height: 90vh; display: flex; flex-direction: column; padding: 20px;">
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px; padding-bottom:10px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="margin:0; flex: 1;" id="tituloVisor3D">📐 Visor de Planos Técnicos</h3>
+          
+          <button class="outline" id="btnAdjuntar3DModal" style="width: auto; padding: 5px 15px; margin:0; border-color:#38bdf8; color:#38bdf8;" onclick="document.getElementById('inputArchivo3D').click()">
+            📁 Adjuntar Archivo Local (.STEP / .STL)
+          </button>
+          <input type="file" id="inputArchivo3D" style="display:none;" accept=".step,.stp,.stl">
+
+          <button class="outline contrast" id="btnCerrarVisor" style="width: auto; padding: 5px 15px; margin:0; border-color:#d93526; color:#d93526;">❌ Cerrar</button>
+        </header>
+
+        <div style="flex: 1; position: relative; background-color: #0f172a; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;">
+            
+            <div id="contenedorVisor3D" style="flex: 1; width: 100%; position: relative; display: block;"></div>
+            
+            <iframe id="contenedorPDF" style="flex: 1; width: 100%; height: 100%; border: none; display: none; background-color: #fff;"></iframe>
+
+            <div id="placeholderVisor">
+                <span style="font-size: 3rem; margin-bottom: 10px;">📐</span>
+                <p id="textoPlaceholder" style="margin:0; font-size: 0.9rem; font-weight: 500; padding: 0 20px;">
+                    Selecciona una orden o haz clic arriba para cargar un diseño.
+                </p>
+            </div>
+
+        </div>
+
+        <footer style="padding: 10px 0 0 0; margin-top:10px; font-size: 0.85rem; text-align: left; border-top: 1px solid #334155;">
+          <span style="color: #94a3b8;">💡 <strong>Seguridad <img src="data:image/png;base64,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" alt="" style="width:95px;height:41px;object-fit:contain;vertical-align:middle;margin-right:8px;">VENG S.A:</strong> El visor procesa el plano en este navegador. Los nuevos adjuntos se leen desde el original seleccionado; solo su referencia se guarda en Firebase. Abrir un archivo solo desde este visor no lo guarda.</span>
+        </footer>
+      </article>
+    </dialog>
+
+    <script>
+        window.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+        window.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); }, false);
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA1gyEhjH-hVrSiCpkqCEFvISA4dFo3Yn8",
+            authDomain: "sgi-v01.firebaseapp.com",
+            databaseURL: "https://sgi-v01-default-rtdb.firebaseio.com",
+            projectId: "sgi-v01",
+            storageBucket: "sgi-v01.firebasestorage.app",
+            messagingSenderId: "393270414199",
+            appId: "1:393270414199:web:c46753d5fbbcb7a033ef72",
+            measurementId: "G-G183P4YRVF"
+        };
+
+        const LISTA_MAQUINAS = ["Ingeniería", "ST40", "VM6-HASS", "Hyundai-WIA", "ACRA", "Cut30", "Form30", "Okuma-Multus4000", "Torno Turri 300", "Torno Travis", "Fresa Schaublin", "Torno Schaublin", "Lymco", "Tarea Manual", "Rectificadora", "CAD/CAM", "Calidad-QC", "Calidad Convencional", "Calidad MMC", "Roscador", "Serrucho", "Proveedor Externo", "Gestión de compras", "Seteador ZOLLER", "Torno paralelo Gauchito T500", "Perforadora Radial Chincul RBP1", "Centro Mecanizado CNC", "Torno CNC", "Torno paralelo", "Fresadora Convencional", "Blastinadora", "Mufla"];
+        const LISTA_TAREAS = ["Corte Material", "CAD", "CAM", "Hoja de Proceso", "Torneado Desbaste", "Torneado de Terminación", "Frenteado", "Fresado", "Perforado", "Roscado", "Perforado-Roscado", "Grabado", "Tronzado", "Avellanado", "Corte por Hilo", "Electro Erosión", "Rectificado", "Tratamiento Térmico", "Cromado", "DMD", "Escareado", "Soldadura", "Blastinado", "Corte Laser CO2", "Integración", "Inspección Visual", "Control Dimensional", "FIT Check", "Mantenimiento Preventivo", "Mantenimiento Correctivo", "Mecanizado de Dispositivo", "Rolado", "Materiales", "Herramientas", "Retrabajo", "Medición pie de Máquina", "Rebarbado", "Niquelado", "Zincado", "Medición de Dureza", "Ingeniería", "CAD-CAM", "Planeado", "Torneado"];
+        const LISTA_OPERARIOS = ["Fernando Morano", "David Díaz", "Jorge Quinteros", "Gerardo Barbero", "Sebastián Díaz", "Mariano Ramírez", "Gustavo Fernández", "Gonzalo Turco"];
+        const INSTRUMENTOS_MEDICION = ["ME-01131", "ME-01119", "ME-01147", "ME-1241", "ME-01078", "ME-00541"];
+
+        let db;
+        let desconectarOrdenes = null;
+        let urlPDFActual = null;
+        let todasLasOrdenes = [];
+        let idEditando = null;
+        let usuarioLogueado = null; 
+        let esAdmin = false;
+        let visor3D = null; 
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+
+
+        } catch (e) {
+            console.warn("Firebase no disponible. La biblioteca local sigue accesible.", e);
+        }
+
+        // --- SISTEMA DE VISUALIZACIÓN REESCRITO Y ROBUSTO (PDF + 3D) ---
+        async function abrirVisor3DDesdeTabla(idOrden) {
+            let orden = todasLasOrdenes.find(o => o.id === idOrden);
+            if (!orden || !orden.archivoAdjuntoData) {
+                abrirModal3DNative(null, "");
+                return;
+            }
+            
+            const archivoObj = orden.archivoAdjuntoData;
+            
+            try {
+                if (archivoObj.origen === 'carpeta-compartida') { await abrirReferenciaCompartida(archivoObj,orden); return; }
+                if (archivoObj.localId) { await recuperarAdjuntoLocal(archivoObj,orden); return; }
+                if (archivoObj.storagePath) throw Error('Adjunto antiguo de Storage: adjuntá su original desde la carpeta compartida.');
+                // 1. Extraemos los componentes de la cadena Base64 generada previamente en Firestore
+                const base64Parts = archivoObj.base64.split(',');
+                const mimeMatch = base64Parts[0].match(/:(.*?);/);
+                const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+                const byteString = atob(base64Parts[1]);
+                const u8arr = new Uint8Array(byteString.length);
+                for (let i = 0; i < byteString.length; i++) {
+                    u8arr[i] = byteString.charCodeAt(i);
+                }
+                
+                // 2. Si el archivo es un PDF
+                if (archivoObj.nombre.toLowerCase().endsWith('.pdf')) {
+                    const blob = new Blob([u8arr], {type: "application/pdf"});
+                    const urlBlob = URL.createObjectURL(blob);
+                    abrirModalPDF(urlBlob, archivoObj.nombre, orden.ot);
+                    return;
+                }
+
+                // 3. Si el archivo es geometría CAD (STEP / STP / STL)
+                // Usamos la API "File" nativa para que la librería 3DViewer reconozca la extensión y el formato correcto
+                const fileObj = new File([u8arr], archivoObj.nombre, { type: mime });
+                abrirModal3DNative({ file: fileObj, nombre: archivoObj.nombre }, orden.ot);
+
+            } catch(e) {
+                alert("No se pudo abrir el adjunto: " + (e.code || e.message));
+                console.error(e);
+            }
+        }
+
+        function abrirModalPDF(urlBlob, nombre, ot) {
+            if(urlPDFActual) URL.revokeObjectURL(urlPDFActual);
+            urlPDFActual = urlBlob;
+            const modal = document.getElementById("modalVisor3D");
+            document.getElementById("tituloVisor3D").innerText = `📄 Visor PDF - OT ${ot || 'Sin OT'} (${nombre})`;
+            
+            // Configurar entorno UI para PDF
+            document.getElementById("contenedorVisor3D").style.display = "none";
+            document.getElementById("placeholderVisor").style.display = "none";
+            document.getElementById("btnAdjuntar3DModal").style.display = "none";
+            
+            const iframe = document.getElementById("contenedorPDF");
+            iframe.style.display = "block";
+            iframe.src = urlBlob;
+
+            modal.showModal();
+        }
+
+        function abrirModal3DNative(archivoInfo, ot) {
+            const modal = document.getElementById("modalVisor3D");
+            document.getElementById("tituloVisor3D").innerText = `📐 Visor Mecánico 3D - OT ${ot || 'Sin OT'}`;
+            
+            // Configurar entorno UI para 3D
+            document.getElementById("contenedorPDF").style.display = "none";
+            document.getElementById("contenedorPDF").src = ""; 
+            document.getElementById("contenedorVisor3D").style.display = "block";
+            document.getElementById("btnAdjuntar3DModal").style.display = "inline-block";
+            
+            modal.showModal();
+            const placeholder = document.getElementById("placeholderVisor");
+            const textoPlaceholder = document.getElementById("textoPlaceholder");
+
+            setTimeout(() => {
+                if (!visor3D) {
+                    inicializarVisor3DNative();
+                } else {
+                    visor3D.Resize();
+                }
+
+                if (archivoInfo && archivoInfo.file) {
+                    placeholder.style.display = "flex";
+                    textoPlaceholder.innerHTML = "⏳ <span style='color:#38bdf8;'>Procesando geometría CAD desde la orden...</span>";
+                    
+                    // PASO CRÍTICO CORREGIDO: Le pasamos el objeto File generado desde el Base64
+                    if (visor3D) visor3D.LoadModelFromFileList([archivoInfo.file]);
+                } else {
+                    placeholder.style.display = "flex";
+                    textoPlaceholder.innerHTML = "📁 Ningún plano pre-cargado. Presiona 'Adjuntar Archivo Local' o arrastra un archivo (.STEP / .STL) aquí.";
+                }
+            }, 100);
+        }
+
+        document.getElementById("btnCerrarVisor").addEventListener("click", () => document.getElementById("modalVisor3D").close());
+        document.getElementById("modalVisor3D").addEventListener("close", () => {
+            document.getElementById("modalVisor3D").close();
+            document.getElementById("contenedorPDF").src = ""; 
+            if(visor3D) visor3D.GetViewer().Clear(); // Limpiamos memoria 3D
+            if(urlPDFActual) { URL.revokeObjectURL(urlPDFActual); urlPDFActual=null; }
+        });
+
+        function inicializarVisor3DNative() {
+            const contenedor = document.getElementById("contenedorVisor3D");
+            const placeholder = document.getElementById("placeholderVisor");
+            const textoPlaceholder = document.getElementById("textoPlaceholder");
+            const inputLocal = document.getElementById("inputArchivo3D");
+
+            if (typeof OV === 'undefined') { textoPlaceholder.textContent = 'No se pudo cargar el visor 3D. Verifica el acceso a las dependencias externas.'; return; }
+            // La versión 0.18 resuelve sus importadores externos automáticamente.
+
+            try {
+                visor3D = new OV.EmbeddedViewer(contenedor, {
+                    backgroundColor: new OV.RGBAColor(15, 23, 42, 255), 
+                    edgeSettings: new OV.EdgeSettings(true, new OV.RGBColor(0, 0, 0), 1),
+                    onModelLoaded: () => {
+                        placeholder.style.display = "none";
+                        if (visor3D) visor3D.Resize();
+                    },
+                    onModelLoadFailed: () => {
+                        placeholder.style.display = "flex";
+                        textoPlaceholder.innerHTML = "❌ <span style='color:#f43f5e;'>Error al procesar la geometría. Verifica que sea un formato válido (.STEP, .STL).</span>";
+                    }
+                });
+            } catch (error) {
+                console.error("Error al instanciar el visor 3D:", error);
+                return;
+            }
+
+            function procesarArchivos(archivos) {
+                if (!archivos || archivos.length === 0) return;
+                placeholder.style.display = "flex";
+                textoPlaceholder.innerHTML = "⏳ <span style='color:#38bdf8;'>Procesando geometría CAD...</span>";
+                const arrayArchivos = Array.from(archivos);
+                try { for (const file of arrayArchivos) validarPlano(file); } catch(e) { textoPlaceholder.textContent=e.message; return; }
+                visor3D.LoadModelFromFileList(arrayArchivos);
+            }
+
+            inputLocal.addEventListener("change", (event) => {
+                procesarArchivos(event.target.files);
+                event.target.value = ""; 
+            });
+
+            contenedor.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); contenedor.style.border = "2px dashed #38bdf8"; });
+            contenedor.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); contenedor.style.border = "none"; });
+            contenedor.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); contenedor.style.border = "none"; procesarArchivos(e.dataTransfer.files); });
+        }
+        // --- FIN DEL SISTEMA DE VISUALIZACIÓN ---
+
+        function agregarFilaPaso(opPrev="", maquinaPrev="", tareaPrev="", operarioPrev="", instsChecked=[]) {
+            const contenedor = document.getElementById("contenedorPasosForm");
+            const totalFilas = contenedor.children.length;
+            const opSugerida = opPrev || (totalFilas + 1) * 10;
+            
+            let opcionesMaquinas = `<option value="" disabled ${maquinaPrev ? '' : 'selected'}>Selecciona la máquina...</option>`;
+            LISTA_MAQUINAS.forEach(m => opcionesMaquinas += `<option value="${m}" ${m === maquinaPrev ? 'selected' : ''}>${m}</option>`);
+
+            let opcionesTareas = `<option value="" disabled ${tareaPrev ? '' : 'selected'}>Selecciona la operación...</option>`;
+            LISTA_TAREAS.forEach(t => opcionesTareas += `<option value="${t}" ${t === tareaPrev ? 'selected' : ''}>${t}</option>`);
+
+            let opcionesOperarios = `<option value="" disabled ${operarioPrev ? '' : 'selected'}>Selecciona el operario...</option>`;
+            LISTA_OPERARIOS.forEach(o => opcionesOperarios += `<option value="${o}" ${o === operarioPrev ? 'selected' : ''}>${o}</option>`);
+
+            let checkboxInstrumentosHTML = "";
+            INSTRUMENTOS_MEDICION.forEach(inst => {
+                const checked = instsChecked.includes(inst) ? "checked" : "";
+                checkboxInstrumentosHTML += `
+                    <label style="display:inline-flex; align-items:center; margin-right:10px; font-size:0.75rem;">
+                        <input type="checkbox" class="chk-instrumento" value="${inst}" ${checked} style="margin-right:4px;"> ${inst}
+                    </label>
+                `;
+            });
+
+            const divFila = document.createElement("div");
+            divFila.className = "fila-paso-form";
+            divFila.innerHTML = `
+                <div class="grid" style="margin-bottom:10px;">
+                    <div style="max-width:80px;">
+                        <label>OP</label>
+                        <input type="number" class="input-op-ruta" value="${opSugerida}" required>
+                    </div>
+                    <div>
+                        <label>Máquina / Puesto</label>
+                        <select class="select-maquina-ruta" required>${opcionesMaquinas}</select>
+                    </div>
+                    <div>
+                        <label>Operación</label>
+                        <select class="select-tarea-ruta" required>${opcionesTareas}</select>
+                    </div>
+                    <div>
+                        <label>Asignado A</label>
+                        <select class="select-operario-ruta" required>${opcionesOperarios}</select>
+                    </div>
+                    <div style="display:flex; align-items:flex-end; padding-bottom:5px;">
+                        <button type="button" class="outline" style="border-color:#d93526; color:#d93526; margin:0; padding:4px 10px;" onclick="this.parentElement.parentElement.parentElement.remove();">❌ Quitar</button>
+                    </div>
+                </div>
+                <div style="border-top: 1px dashed #334155; padding-top:8px;">
+                    <strong style="font-size:0.75rem; color:#268bd2; display:block; margin-bottom:4px;">📐 Medición Pie de Máquina (Cotas Generales):</strong>
+                    ${checkboxInstrumentosHTML}
+                </div>
+            `;
+            contenedor.appendChild(divFila);
+        }
+
+        function formatoTiempo(milisegundos) {
+            if (!milisegundos || milisegundos <= 0) return "0m";
+            let totalMinutos = Math.floor(milisegundos / 60000);
+            let horas = Math.floor(totalMinutos / 60);
+            let minutos = totalMinutos % 60;
+            if (horas > 0) return `${horas}h ${minutos}m`;
+            return `${minutos}m`;
+        }
+
+        function conectarEscuchaFirebase() {
+            document.getElementById("pantallaLogin").style.display = "none";
+            document.getElementById("pantallaPrincipal").style.display = "block";
+            document.getElementById("nombreUsuarioActivo").innerText = esAdmin ? "👔 Oficina Técnica (Admin)" : `🛠️ Operario: ${usuarioLogueado}`;
+
+            document.getElementById("seccionFormulario").style.display = esAdmin ? "block" : "none";
+            document.getElementById("columnaAccionesHistorial").style.display = "table-cell";
+
+            document.getElementById("contenedorPasosForm").innerHTML = "";
+            if(esAdmin) agregarFilaPaso();
+
+            if(!db) return;
+            if(desconectarOrdenes) desconectarOrdenes();
+            desconectarOrdenes = db.collection("ordenes_veng").onSnapshot((snapshot) => {
+                todasLasOrdenes = [];
+                snapshot.forEach((doc) => {
+                    todasLasOrdenes.push({ ...doc.data(), id: doc.id });
+                });
+                mostrarTablas();
+            }, error => { alert("No se pudieron leer las órdenes de Firebase: " + error.code + ". Verifica conexión y permisos."); });
+        }
+
+        function leerArchivoLocalComoBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                reader.onload = function(e) {
+                    resolve({
+                        nombre: file.name,
+                        base64: e.target.result
+                    });
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function guardarOrden() {
+            if (!db || !esAdmin) return;
+            
+            const filasPasos = document.querySelectorAll("#contenedorPasosForm .fila-paso-form");
+            if (filasPasos.length === 0) {
+                alert("⚠️ Debes agregar al menos una operación a la Hoja de Ruta.");
+                return;
+            }
+
+            const btn = document.getElementById("btnFormulario");
+            const inputArchivo = document.getElementById("archivoAdjunto");
+            let archivoDataFinal = null;
+
+            if (inputArchivo.files.length > 0) {
+                const file = inputArchivo.files[0];
+                
+                if (file.size > LIMITE_LOCAL) {
+                    alert("El archivo supera el límite de 200 MiB.");
+                    return;
+                }
+                
+                btn.innerText = "⏳ Codificando archivo en base de datos...";
+                btn.disabled = true;
+                try {
+                    if (!/\.(pdf|step|stp|stl)$/i.test(file.name)) throw new Error('Formato no permitido. Usa PDF, STEP, STP o STL.');
+                    btn.innerText = 'Verificando referencia del archivo…';
+                    archivoDataFinal = await crearReferenciaCompartida(file,document.getElementById('revisionAdjunto').value.trim());
+                } catch(error) {
+                    alert('No se pudo guardar el adjunto. ' + (error.code || error.message) + '. Revisá que el original esté disponible y que uses HTTPS. La orden no se modificó.');
+                    btn.disabled=false; btn.innerText=idEditando?'Guardar cambios':'Emitir Hoja de Ruta';
+                    return;
+                }
+            }
+
+            let pasosArray = [];
+            filasPasos.forEach((fila) => {
+                let opSel = fila.querySelector(".input-op-ruta").value;
+                let maquinaSel = fila.querySelector(".select-maquina-ruta").value;
+                let tareaSel = fila.querySelector(".select-tarea-ruta").value;
+                let operarioSel = fila.querySelector(".select-operario-ruta").value;
+                
+                let instsChecked = [];
+                fila.querySelectorAll(".chk-instrumento:checked").forEach(chk => { instsChecked.push(chk.value); });
+
+                pasosArray.push({
+                    op: parseInt(opSel),
+                    maquina: maquinaSel,
+                    tarea: tareaSel,
+                    asignadoA: operarioSel,
+                    instrumentos: instsChecked,
+                    estado: "Pendiente",
+                    tiempoAcumulado: 0,
+                    horaInicio: null,
+                    notes: "",
+                    legajo: "",
+                    firmaDigital: "",
+                    fechaFirma: ""
+                });
+            });
+
+            pasosArray.sort((a,b) => a.op - b.op);
+            let ordenAnterior = idEditando ? todasLasOrdenes.find(o => o.id === idEditando) : null;
+            
+            btn.disabled = true;
+            let datosOrden = {
+                ot: document.getElementById("ot").value.trim(),
+                pos: document.getElementById("pos").value.trim(),
+                nPlano: document.getElementById("nPlano").value.trim(),
+                cliente: document.getElementById("cliente").value.trim(),
+                proyecto: document.getElementById("proyecto").value.trim(),
+                area: document.getElementById("area").value.trim(),
+                producto: document.getElementById("producto").value.trim(),
+                material: document.getElementById("material").value.trim(),
+                cantidad: parseInt(document.getElementById("cantidad").value),
+                fecha: document.getElementById("fecha").value,
+                notes: document.getElementById("notes").value.trim(),
+                archivoAdjuntoData: archivoDataFinal || (idEditando && ordenAnterior.archivoAdjuntoData ? ordenAnterior.archivoAdjuntoData : null),
+                pasos: pasosArray,
+                estado: idEditando ? ordenAnterior.estado : "Pendiente"
+            };
+            
+            try {
+                if (new TextEncoder().encode(JSON.stringify(datosOrden)).length > 900000) throw new Error('La orden supera el tamaño seguro. Reemplaza el adjunto antiguo por una copia local o reduce los datos.');
+                await llamarMES('mesOrden', {accion:'guardar', id:idEditando, orden:datosOrden});
+                limpiarFormularioPosterior();
+            } catch(error) {
+                alert('No se pudo guardar la orden: ' + (error.code || error.message));
+                btn.disabled=false; btn.innerText=idEditando?'Guardar cambios':'Emitir Hoja de Ruta';
+            }
+        }
+
+        function limpiarFormularioPosterior() {
+            idEditando = null;
+            const btn = document.getElementById("btnFormulario");
+            btn.innerText = "Emitir Hoja de Ruta";
+            btn.disabled = false;
+            document.getElementById("formularioOrden").reset();
+            document.getElementById("infoArchivoEdicion").style.display = "none";
+            document.getElementById("contenedorPasosForm").innerHTML = "";
+            agregarFilaPaso();
+        }
+
+        function editarOrden(id) {
+            let orden = todasLasOrdenes.find(o => o.id === id);
+            if (!orden) return;
+            document.getElementById("ot").value = orden.ot || "";
+            document.getElementById("pos").value = orden.pos || "";
+            document.getElementById("nPlano").value = orden.nPlano || "";
+            document.getElementById("cliente").value = orden.cliente;
+            document.getElementById("proyecto").value = orden.proyecto || "";
+            document.getElementById("area").value = orden.area || "";
+            document.getElementById("producto").value = orden.producto;
+            document.getElementById("material").value = orden.material || "";
+            document.getElementById("cantidad").value = orden.cantidad;
+            document.getElementById("fecha").value = orden.fecha;
+            document.getElementById("notes").value = orden.notes || "";
+            
+            document.getElementById("archivoAdjunto").value = "";
+            const divInfo = document.getElementById("infoArchivoEdicion");
+            document.getElementById("revisionAdjunto").value = orden.archivoAdjuntoData?.revision || "";
+            if(orden.archivoAdjuntoData) {
+                divInfo.style.display = "block";
+                divInfo.textContent = `📎 Adjunto vinculado: ${orden.archivoAdjuntoData.nombre} (Seleccioná otro solo para cambiarlo).`;
+            } else {
+                divInfo.style.display = "none";
+            }
+
+            document.getElementById("contenedorPasosForm").innerHTML = "";
+            orden.pasos.forEach(p => agregarFilaPaso(p.op, p.maquina, p.tarea, p.asignadoA, p.instrumentos || []));
+            
+            idEditando = id;
+            document.getElementById("btnFormulario").innerText = "💾 Guardar Cambios en Ruta";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function eliminarOrden(id) {
+            if (confirm("🚨 ¿Eliminar esta Hoja de Ruta de VENG de forma permanente?")) {
+                llamarMES('mesOrden',{accion:'eliminar',id}).catch(e=>alert(e.message));
+            }
+        }
+
+        function generarHTMLImpresion(data) {
+            let pasosHTML = "";
+            data.pasos.forEach(p => {
+                let insts = p.instrumentos && p.instrumentos.length > 0 ? p.instrumentos.map(escaparCarga).join(", ") : "Ninguno";
+                let verif = p.instrumentosVerificadosTaller && p.instrumentosVerificadosTaller.length > 0 ? `<br><small><b>Verificado:</b> ${p.instrumentosVerificadosTaller.map(escaparCarga).join(", ")}</small>` : '';
+                let bloqueFirmaQC = `<span style="color:#666; font-style:italic;">Pendiente</span>`;
+                if (p.legajo && p.firmaDigital) {
+                    bloqueFirmaQC = `<div style="font-size:10px; line-height: 1.2;"><b>Firma:</b> ${escaparCarga(p.firmaDigital)}<br><b>Legajo:</b> ${escaparCarga(p.legajo)}<br><small style="font-size:8px; color:#555;">${p.fechaFirma || ''}</small></div>`;
+                }
+                pasosHTML += `<tr><td>${escaparCarga(p.op)}</td><td>${escaparCarga(p.maquina)}</td><td>${escaparCarga(p.tarea)}</td><td>${escaparCarga(p.asignadoA)}</td><td>${insts}${verif}</td><td>${escaparCarga(p.estado)} ${p.tiempoAcumulado ? `(${formatoTiempo(p.tiempoAcumulado)})` : ''}</td><td style="width: 150px;">${bloqueFirmaQC}</td></tr>`;
+            });
+
+            return `
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Hoja de Ruta - OT ${escaparCarga(data.ot)}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 25px; color: #000; font-size: 12px; }
+                        .header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #000; padding-bottom: 10px; margin-bottom: 25px; }
+                        .header-print h1 { margin: 0; font-size: 24px; letter-spacing: 1px; }
+                        .grid-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
+                        .box-info { border: 1px solid #000; padding: 8px; border-radius: 4px; }
+                        .box-info strong { display: block; font-size: 9px; text-transform: uppercase; color: #444; margin-bottom: 3px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; }
+                        th { background-color: #eaeaea; }
+                        .footer { margin-top: 50px; text-align: center; font-size: 10px; border-top: 1px dashed #000; padding-top: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header-print">
+                        <div><h1><img src="data:image/png;base64,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" alt="" style="width:95px;height:41px;object-fit:contain;vertical-align:middle;margin-right:8px;">VENG S.A.</h1><p style="margin: 3px 0 0 0; font-weight: bold;">HOJA DE RUTA DIGITAL DE PLANTA</p></div>
+                        <div style="text-align: right;"><h2>OT: ${escaparCarga(data.ot || '----')}</h2><p>POS: ${escaparCarga(data.pos || '---')}</p></div>
+                    </div>
+                    <div class="grid-info">
+                        <div class="box-info"><strong>Nº Plano / Parte</strong>${escaparCarga(data.nPlano || '---')}</div>
+                        <div class="box-info"><strong>Solicitante / Cliente</strong>${escaparCarga(data.cliente || '---')}</div>
+                        <div class="box-info"><strong>Proyecto</strong>${escaparCarga(data.proyecto || '---')}</div>
+                        <div class="box-info"><strong>Área</strong>${escaparCarga(data.area || '---')}</div>
+                        <div class="box-info"><strong>Denominación de Pieza</strong>${escaparCarga(data.producto || '---')}</div>
+                        <div class="box-info"><strong>Material / Calidad</strong>${escaparCarga(data.material || '---')}</div>
+                        <div class="box-info"><strong>Cantidad</strong>${escaparCarga(data.cantidad || '1')}</div>
+                        <div class="box-info"><strong>Fecha Límite</strong>${escaparCarga(data.fecha || '---')}</div>
+                        <div class="box-info"><strong>Estado de OT</strong>${escaparCarga(data.estado || 'Pendiente')}</div>
+                    </div>
+                    ${data.notes ? `<div class="box-info" style="margin-bottom: 25px;"><strong>Observaciones Iniciales</strong>${escaparCarga(data.notes)}</div>` : ''}
+                    <h3>📋 Secuencia Operacional de Manufactura</h3>
+                    <table>
+                        <thead><tr><th>OP</th><th>Máquina / Puesto</th><th>Operación</th><th>Asignado A</th><th>Instrumentos</th><th>Estado / Tiempo</th><th>Firma / Control QC</th></tr></thead>
+                        <tbody>${pasosHTML}</tbody>
+                    </table>
+                    <div class="footer">Documento Oficial de Planta - <img src="data:image/png;base64,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" alt="" style="width:95px;height:41px;object-fit:contain;vertical-align:middle;margin-right:8px;">VENG S.A.</div>
+                    <script>window.onload = function() { window.print(); window.close(); }<\/script>
+                </body>
+                </html>
+            `;
+        }
+
+        function imprimirDesdeFormulario() {
+            const filasPasos = document.querySelectorAll("#contenedorPasosForm .fila-paso-form");
+            let pasosFormulados = [];
+            
+            filasPasos.forEach((fila) => {
+                let opSel = fila.querySelector(".input-op-ruta").value;
+                let maquinaSel = fila.querySelector(".select-maquina-ruta").value;
+                let tareaSel = fila.querySelector(".select-tarea-ruta").value;
+                let operarioSel = fila.querySelector(".select-operario-ruta").value;
+                let instsChecked = [];
+                fila.querySelectorAll(".chk-instrumento:checked").forEach(chk => { instsChecked.push(chk.value); });
+
+                pasosFormulados.push({
+                    op: parseInt(opSel) || 0,
+                    maquina: maquinaSel || "No especificada",
+                    tarea: tareaSel || "No especificada",
+                    asignadoA: operarioSel || "No asignado",
+                    instrumentos: instsChecked,
+                    estado: "Pendiente (Borrador)",
+                    tiempoAcumulado: 0,
+                    legajo: "",
+                    firmaDigital: ""
+                });
+            });
+
+            pasosFormulados.sort((a,b) => a.op - b.op);
+
+            let datosBorrador = {
+                ot: document.getElementById("ot").value.trim() || "PRE-EMISIÓN",
+                pos: document.getElementById("pos").value.trim() || "---",
+                nPlano: document.getElementById("nPlano").value.trim() || "---",
+                cliente: document.getElementById("cliente").value.trim() || "---",
+                proyecto: document.getElementById("proyecto").value.trim() || "---",
+                area: document.getElementById("area").value.trim() || "---",
+                producto: document.getElementById("producto").value.trim() || "---",
+                material: document.getElementById("material").value.trim() || "---",
+                cantidad: parseInt(document.getElementById("cantidad").value) || 1,
+                fecha: document.getElementById("fecha").value || "---",
+                notes: document.getElementById("notes").value.trim(),
+                pasos: pasosFormulados,
+                estado: "Borrador Pre-Emisión"
+            };
+
+            let ventanaImpresion = window.open("", "_blank");
+            ventanaImpresion.document.write(generarHTMLImpresion(datosBorrador));
+            ventanaImpresion.document.close();
+        }
+
+        function imprimirOrden(id) {
+            let orden = todasLasOrdenes.find(o => o.id === id);
+            if (!orden) return;
+            let ventanaImpresion = window.open("", "_blank");
+            ventanaImpresion.document.write(generarHTMLImpresion(orden));
+            ventanaImpresion.document.close();
+        }
+
+
+        function cambiarPantallaMES(cargas) {
+            document.getElementById('pantallaCargas').hidden = !cargas;
+            document.getElementById('pantallaRutas').hidden = cargas;
+            if(cargas) renderCargas();
+        }
+        function escaparCarga(v) { return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+        function agruparCargas(ordenes) {
+            const grupos = new Map(LISTA_MAQUINAS.map(m => [m, []]));
+            ordenes.filter(o => o.estado !== 'Terminado').forEach(o => {
+                (o.pasos || []).forEach((p,i,ps) => {
+                    if(p.estado === 'Terminado') return;
+                    const maquina=p.maquina || 'Sin máquina asignada';
+                    if(!grupos.has(maquina)) grupos.set(maquina,[]);
+                    const estado=p.estado === 'En proceso' ? 'En ejecución' : p.estado === 'Pausado' ? 'Pausada' : ps.slice(0,i).every(a => a.estado === 'Terminado') ? 'Lista' : 'Espera OP anterior';
+                    grupos.get(maquina).push({o,p,estado});
+                });
+            });
+            return grupos;
+        }
+        function renderCargas() {
+            const grupos=agruparCargas(todasLasOrdenes);
+            const sel=document.getElementById('filtroMaquinaCarga');
+            const elegido=sel.value;
+            sel.innerHTML='<option value="">Todos</option>'+Array.from(grupos.keys()).map(m=>`<option value="${escaparCarga(m)}">${escaparCarga(m)}</option>`).join('');
+            sel.value=grupos.has(elegido)?elegido:'';
+            const q=document.getElementById('buscarCarga').value.trim().toLocaleLowerCase('es');
+            const libres=document.getElementById('incluirLibres').checked;
+            let total=0, recursos=0, html='';
+            const prioridades={'En ejecución':0,'Pausada':1,'Lista':2,'Espera OP anterior':3};
+            for(const [maquina,tareas] of grupos) {
+                if(sel.value && maquina!==sel.value) continue;
+                const visibles=tareas.filter(({o,p})=>`${o.ot} ${o.pos} ${o.producto} ${escaparCarga(p.asignadoA)}`.toLocaleLowerCase('es').includes(q));
+                if(!visibles.length && (!libres || q)) continue;
+                total+=visibles.length; recursos++;
+                const activas=tareas.filter(t=>t.estado==='En ejecución').length;
+                html+=`<section class="columna-maquina"><h3>${escaparCarga(maquina)}</h3><small>${visibles.length} operaciones abiertas · ${activas} en ejecución</small>${activas>1?'<p style="color:#fda4af">⚠ Revisar: más de una operación en ejecución en este recurso.</p>':''}`;
+                visibles.sort((a,b)=>prioridades[a.estado]-prioridades[b.estado] || String(a.o.fecha||'9999').localeCompare(String(b.o.fecha||'9999')));
+                for(const {o,p,estado} of visibles) {
+                    const clase=estado==='En ejecución'?'ejecucion':estado==='Pausada'?'pausa':estado==='Lista'?'lista':'';
+                    html+=`<div class="tarjeta-carga ${clase}"><strong>OT ${escaparCarga(o.ot)} / POS ${escaparCarga(o.pos)} · OP ${escaparCarga(p.op)}</strong><small>${escaparCarga(o.producto)}</small><small>${escaparCarga(p.tarea)} · ${escaparCarga(p.asignadoA||'Sin operario')}</small><small>Estado: ${estado}</small><small>Entrega de OT: ${escaparCarga(o.fecha||'Sin fecha')}</small><small>Tiempo registrado: ${formatoTiempo(p.tiempoAcumulado||0)} (tramos cerrados)</small></div>`;
+                }
+                html+=(!visibles.length?'<p>Sin operaciones abiertas.</p>':'')+'</section>';
+            }
+            document.getElementById('resumenCargas').textContent=`${total} operaciones abiertas en ${recursos} recursos mostrados. Se actualiza con las órdenes recibidas del sistema.`;
+            document.getElementById('tableroCargas').className='kanban-maquinas';
+            document.getElementById('tableroCargas').innerHTML=html||'<p>No hay operaciones que coincidan con los filtros.</p>';
+        }
+
+const LIMITE_LOCAL = 200 * 1024 * 1024;
+// File objects remain only in this tab. Never serialize bytes into Firestore.
+const archivosSesion = new Map();
+async function hashPlano(file) {
+    return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function crearReferenciaCompartida(file,revision) {
+    validarPlano(file);
+    const hash=await hashPlano(file);
+    archivosSesion.set(hash,file);
+    return {origen:'carpeta-compartida',nombre:file.name,tamano:file.size,hash,revision:revision||'',fecha:new Date().toISOString(),ultimaModificacion:file.lastModified};
+}
+async function abrirReferenciaCompartida(info,orden) {
+    let file=archivosSesion.get(info.hash);
+    if(!file) {
+        alert('Seleccioná desde la carpeta compartida: '+info.nombre+' · Revisión '+(info.revision||'sin indicar')+'. Se verificará el contenido, no solo el nombre.');
+        file=await new Promise(resolve=>{
+            const input=document.createElement('input');input.type='file';input.accept='.pdf,.step,.stp,.stl';
+            input.onchange=()=>resolve(input.files[0]||null);input.oncancel=()=>resolve(null);input.click();
+        });
+        if(!file)return;
+        validarPlano(file);
+        if(file.size!==info.tamano || await hashPlano(file)!==info.hash)throw Error('El archivo no coincide con la revisión vinculada. Pedí a Oficina Técnica que adjunte la nueva revisión si corresponde.');
+        archivosSesion.set(info.hash,file);
+    }
+    abrirCopiaLocal({nombre:info.nombre,blob:file,ot:orden.ot});
+}
+let baseAdjuntosPromise;
+function baseAdjuntos() {
+    if (!baseAdjuntosPromise) baseAdjuntosPromise = new Promise((resolve,reject)=>{
+        const r=indexedDB.open('mes-planos-locales-v1',1);
+        r.onupgradeneeded=()=>r.result.createObjectStore('archivos',{keyPath:'id'});
+        r.onsuccess=()=>resolve(r.result);
+        r.onerror=()=>{baseAdjuntosPromise=null;reject(r.error);};
+    });
+    return baseAdjuntosPromise;
+}
+async function leerLocales(id) {
+    const dbLocal=await baseAdjuntos();
+    return new Promise((resolve,reject)=>{
+        const r=dbLocal.transaction('archivos').objectStore('archivos');
+        const q=id?r.get(id):r.getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);
+    });
+}
+async function guardarLocales(registros) {
+    const dbLocal=await baseAdjuntos();
+    return new Promise((resolve,reject)=>{
+        const t=dbLocal.transaction('archivos','readwrite');
+        t.oncomplete=resolve;t.onerror=()=>reject(t.error);t.onabort=()=>reject(t.error||Error('Guardado cancelado'));
+        for(const r of registros) t.objectStore('archivos').put(r);
+    });
+}
+function validarPlano(file) {
+    if(!/\.(pdf|step|stp|stl)$/i.test(file.name)) throw Error('Usa PDF, STEP, STP o STL.');
+    if(!file.size || file.size>LIMITE_LOCAL) throw Error('El archivo debe tener contenido y no superar 200 MiB.');
+}
+async function guardarPlanoLocal(file,ot,pos,revision) {
+    validarPlano(file);
+    const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))).map(x=>x.toString(16).padStart(2,'0')).join('');
+    const r={id:crypto.randomUUID(),nombre:file.name,ot:String(ot),pos:String(pos),revision:revision||'',fecha:new Date().toISOString(),tamano:file.size,hash,blob:file};
+    await guardarLocales([r]);
+    return {localId:r.id,nombre:r.nombre,tamano:r.tamano,hash:r.hash,revision:r.revision,fecha:r.fecha};
+}
+async function mostrarBibliotecaLocal() {
+    document.getElementById('modalLocales').showModal();
+    await refrescarLocales();
+}
+async function refrescarLocales() {
+    const cont=document.getElementById('listaLocales');cont.replaceChildren();
+    try {
+        const registros=await leerLocales();
+        document.getElementById('estadoLocales').textContent=registros.length+' archivos en este navegador y dispositivo. '+(navigator.storage?.persisted && await navigator.storage.persisted()?'Almacenamiento persistente concedido.':'Exportá respaldos: borrar datos del navegador elimina estas copias.');
+        for(const r of registros) {
+            const div=document.createElement('article');div.style.padding='12px';
+            const t=document.createElement('p');t.textContent=`OT ${r.ot} / POS ${r.pos} · ${r.nombre} · Revisión ${r.revision||'sin indicar'} · ${(r.tamano/1048576).toFixed(2)} MB · ${new Date(r.fecha).toLocaleString()}`;
+            const b=document.createElement('button');b.textContent='Ver plano';b.onclick=()=>abrirCopiaLocal(r);
+            const d=document.createElement('button');d.textContent='Descargar original';d.className='outline';d.onclick=()=>descargarBlob(r.blob,r.nombre);
+            div.append(t,b,d);cont.append(div);
+        }
+    }catch(e){document.getElementById('estadoLocales').textContent='No se pudo acceder al almacenamiento local: '+e.message;}
+}
+function descargarBlob(blob,nombre) {
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=nombre;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+function abrirCopiaLocal(r) {
+    if(r.nombre.toLowerCase().endsWith('.pdf')) abrirModalPDF(URL.createObjectURL(new Blob([r.blob],{type:'application/pdf'})),r.nombre,r.ot);
+    else abrirModal3DNative({file:new File([r.blob],r.nombre)},r.ot);
+}
+async function solicitarPersistencia() {
+    const ok=await navigator.storage?.persist?.();alert(ok?'Persistencia concedida. Conservá también respaldos.':'El navegador no concedió persistencia. Los archivos siguen guardados; exportá un respaldo.');await refrescarLocales();
+}
+async function agregarLocalManual(event) {
+    event.preventDefault();const f=document.getElementById('formLocal');const boton=f.querySelector('button');boton.disabled=true;
+    try {await guardarPlanoLocal(f.elements.plano.files[0],f.elements.otLocal.value,f.elements.posLocal.value,f.elements.revision.value);f.reset();await refrescarLocales();}catch(e){alert(e.message);}finally{boton.disabled=false;}
+}
+async function exportarLocales() {
+    try {
+        const registros=await leerLocales();const archivos=[];
+        for(const r of registros) {const data=await leerArchivoLocalComoBase64(new File([r.blob],r.nombre));const {blob,...meta}=r;archivos.push({...meta,base64:data.base64});}
+        descargarBlob(new Blob([JSON.stringify({formato:'MES-planos-locales',version:1,archivos})],{type:'application/json'}),'Respaldo_planos_MES_'+new Date().toISOString().slice(0,10)+'.json');
+    }catch(e){alert('No se pudo exportar: '+e.message);}
+}
+async function importarLocales(input) {
+    try {
+        const f=input.files[0];if(!f)return;
+        if(f.size>200*1024*1024)throw Error('El respaldo supera 200 MB. Importá respaldos más pequeños.');
+        const data=JSON.parse(await f.text());if(data.formato!=='MES-planos-locales'||data.version!==1||!Array.isArray(data.archivos))throw Error('Respaldo no válido.');
+        const nuevos=[];
+        for(const r of data.archivos) {
+            if(typeof r.id!=='string'||typeof r.nombre!=='string'||typeof r.base64!=='string'||!/^[a-f0-9]{64}$/.test(r.hash))throw Error('Registro no válido.');
+            const encoded=r.base64.split(',')[1];if(!encoded||encoded.length>Math.ceil(LIMITE_LOCAL/3)*4)throw Error('Adjunto demasiado grande o inválido.');
+            const bytes=Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+            const file=new File([bytes],r.nombre);validarPlano(file);
+            const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(x=>x.toString(16).padStart(2,'0')).join('');
+            if(hash!==r.hash)throw Error('El respaldo contiene un archivo dañado: '+r.nombre);
+            const existe=await leerLocales(r.id);if(existe&&existe.hash!==hash)throw Error('Conflicto de identificador: no se reemplazaron archivos.');
+            nuevos.push({id:r.id,nombre:r.nombre,ot:String(r.ot||''),pos:String(r.pos||''),revision:String(r.revision||''),fecha:r.fecha,tamano:file.size,hash,blob:file});
+        }
+        await guardarLocales(nuevos);await refrescarLocales();alert('Respaldo importado correctamente.');
+    }catch(e){alert('No se importó el respaldo: '+e.message);}finally{input.value='';}
+}
+async function recuperarAdjuntoLocal(info,orden) {
+    let r=await leerLocales(info.localId);
+    if(!r) {
+        alert('Este plano no está en este dispositivo. Seleccioná el archivo original o importá un respaldo. Se verificará que sea exactamente el mismo archivo.');
+        const file=await new Promise(resolve=>{const i=document.createElement('input');i.type='file';i.accept='.pdf,.stp,.step,.stl';i.onchange=()=>resolve(i.files[0]);i.oncancel=()=>resolve(null);i.click();});
+        if(!file)return;
+        validarPlano(file);
+        const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))).map(x=>x.toString(16).padStart(2,'0')).join('');
+        if(hash!==info.hash)throw Error('El archivo no coincide con el plano vinculado a esta orden.');
+        r={id:info.localId,nombre:info.nombre,ot:orden.ot,pos:orden.pos,revision:info.revision||'',fecha:info.fecha,tamano:file.size,hash,blob:file};await guardarLocales([r]);
+    }
+    abrirCopiaLocal(r);
+}
+
+
+function abrirAdjuntosRuta() {
+ document.getElementById('contextoAdjunto').textContent='OT '+(document.getElementById('ot').value||'sin indicar')+' / POS '+(document.getElementById('pos').value||'sin indicar');
+ actualizarResumenAdjunto();document.getElementById('modalAdjuntosRuta').showModal();
+}
+function actualizarResumenAdjunto() {
+ const input=document.getElementById('archivoAdjunto'),f=input.files[0];
+ if(f) {try{validarPlano(f);}catch(e){input.value='';document.getElementById('resumenAdjunto').textContent=e.message;return;}}
+ document.getElementById('resumenAdjunto').textContent=f?'Seleccionado: '+f.name+' · '+(f.size/1048576).toFixed(2)+' MB. Pendiente de guardar la hoja de ruta.':'No hay un nuevo archivo seleccionado.';
+}
+async function previsualizarAdjuntoRuta() {
+ const f=document.getElementById('archivoAdjunto').files[0];
+ if(f){try {validarPlano(f);abrirCopiaLocal({nombre:f.name,blob:f,ot:document.getElementById('ot').value});}catch(e){alert(e.message);}return;}
+ if(idEditando && todasLasOrdenes.find(o=>o.id===idEditando)?.archivoAdjuntoData){await abrirVisor3DDesdeTabla(idEditando);return;}
+ alert('Seleccioná un archivo para visualizarlo.');
+}
+
+        function mostrarTablas() {
+            renderCargas();
+            let tablaActivasHTML = document.getElementById("tablaDeOrdenes");
+            let tablaHistorialHTML = document.getElementById("tablaHistorial");
+            
+            tablaActivasHTML.innerHTML = "";
+            tablaHistorialHTML.innerHTML = "";
+
+            let busquedaCliente = document.getElementById("buscadorCliente").value.toLowerCase();
+            let busquedaOT = document.getElementById("buscadorOT").value.trim();
+            let hoy = new Date(); hoy.setHours(0,0,0,0);
+
+            todasLasOrdenes.forEach((orden) => {
+                let pasos = orden.pasos || [];
+                let idxPasoActivo = pasos.findIndex(p => p.estado !== "Terminado");
+                let pasoActivo = (idxPasoActivo !== -1 ? pasos[idxPasoActivo] : pasos[pasos.length - 1]) || {estado:"Sin operaciones",asignadoA:"Sin asignar"};
+
+                if (busquedaCliente && !String(orden.cliente || '').toLowerCase().includes(busquedaCliente)) return;
+                if (busquedaOT && orden.ot !== busquedaOT) return;
+
+                let esMiTurnoActivo = (!esAdmin && pasoActivo && orden.estado !== "Terminado" && pasoActivo.estado !== "Terminado" && pasoActivo.asignadoA === usuarioLogueado);
+
+                let tiempoTotalRuta = 0;
+                let htmlRutaVisual = `<div class="contenedor-ruta-visual">`;
+                
+                pasos.forEach((p, idx) => {
+                    tiempoTotalRuta += (p.tiempoAcumulado || 0);
+                    let claseE = p.estado.toLowerCase().replace(" ", "-");
+                    let icon = p.estado === "Terminado" ? "✓" : (p.estado === "En proceso" ? "⏳ 🔵" : (p.estado === "Pausado" ? "⏸️" : "⚪"));
+                    
+                    let htmlInstrumentosPaso = "";
+                    if(p.instrumentos && p.instrumentos.length > 0) {
+                        htmlInstrumentosPaso = `<div class="instrumentos-container">`;
+                        p.instrumentos.forEach(ins => {
+                            let verifList = p.instrumentosVerificadosTaller || [];
+                            let IsChecked = verifList.includes(ins);
+                            
+                            if(orden.estado !== "Terminado" && p.estado === "En proceso" && p.asignadoA === usuarioLogueado && !esAdmin) {
+                                htmlInstrumentosPaso += `
+                                    <label class="instrumento-tag ${IsChecked?'checked':''}">
+                                        <input type="checkbox" style="margin:0 3px 0 0; width:12px; height:12px;" ${IsChecked?'checked':''} onchange="marcarInstrumentoMesa('${orden.id}', ${idx}, '${ins}', this.checked)"> ${ins}
+                                    </label>
+                                `;
+                            } else {
+                                htmlInstrumentosPaso += `<span class="instrumento-tag ${IsChecked?'checked':''}">⚙️ ${ins}${IsChecked?' (OK)':''}</span>`;
+                            }
+                        });
+                        htmlInstrumentosPaso += `</div>`;
+                    }
+
+                    let bloqueFirmaRutaVisual = "";
+                    if(p.legajo && p.firmaDigital) {
+                        bloqueFirmaRutaVisual = `<div style="color:#2aa198; font-size:0.75rem; font-weight:bold; margin-top:3px; border-top: 1px dotted #334155; padding-top:2px;">✍️ Firmado por: ${escaparCarga(p.firmaDigital)} (Leg: ${escaparCarga(p.legajo)})</div>`;
+                    }
+
+                    htmlRutaVisual += `
+                        <div class="paso-card-visual ${claseE}">
+                            <strong>OP ${escaparCarga(p.op)} - Mág: ${escaparCarga(p.maquina)}</strong> | <span>${escaparCarga(p.tarea)}</span> 
+                            <span style="float:right; font-weight:bold;">${icon} ${escaparCarga(p.asignadoA)}</span>
+                            ${htmlInstrumentosPaso}
+                            ${p.notes ? `<div style="color:#fda4af; font-size:0.7rem; margin-top:3px;">💬 Obs: ${escaparCarga(p.notes)}</div>`:''}
+                            ${bloqueFirmaRutaVisual}
+                        </div>
+                    `;
+                });
+                htmlRutaVisual += `</div>`;
+
+                let tieneArchivo = !!orden.archivoAdjuntoData;
+                let esPDF = tieneArchivo && orden.archivoAdjuntoData.nombre.toLowerCase().endsWith('.pdf');
+                let iconoBotonPlano = tieneArchivo ? (esPDF ? "📄" : "📐") : "🚫";
+                let tituloBotonPlano = tieneArchivo ? (esPDF ? "Abrir Plano PDF Técnico" : "Ver Diseño 3D (STEP/STL)") : "Sin plano adjunto";
+                let colorBotonPlano = tieneArchivo ? (esPDF ? "#2aa198" : "#38bdf8") : "#64748b";
+
+                let estiloFilaTurno = esMiTurnoActivo ? 'style="background-color: #172535; border-left: 5px solid #38bdf8;"' : '';
+                let cartelMiTurno = esMiTurnoActivo ? '<br><span class="badge" style="background-color:#38bdf8; color:#0f172a; font-weight:bold; font-size:0.7rem; display:inline-block; margin-top:5px; animation: parpadeoAlerta 2s infinite ease-in-out;">⚡ TU TURNO AHORA</span>' : '';
+
+                if (orden.estado !== "Terminado") {
+                    let celdaFecha = "";
+                    if (orden.fecha) {
+                        const fEntrega = new Date(orden.fecha + 'T00:00:00');
+                        const dif = Math.floor((fEntrega - hoy) / (1000 * 60 * 60 * 24));
+                        if (dif < 0) celdaFecha = `<span class="badge-fecha" style="background-color: #721c24;">🔴 Retrasado (${Math.abs(dif)}d)</span>`;
+                        else if (dif === 0) celdaFecha = `<span class="badge-fecha alerta-hoy">🚨 HOY</span>`;
+                        else if (dif <= 4) celdaFecha = `<span class="badge-fecha" style="background-color: #b58900;">🟡 ${dif} días</span>`;
+                        else celdaFecha = `<span class="badge-fecha" style="background-color: #2aa198;">🟢 ${dif} días</span>`;
+                    }
+
+                    let btnAccion = "";
+                    if (esAdmin || esMiTurnoActivo) {
+                        if (pasoActivo.estado === "Pendiente") {
+                            btnAccion = `<button class="outline" style="padding:4px 10px; margin:0;" onclick="cambiarEstado('${orden.id}', 'En proceso')">▶️ Iniciar</button>`;
+                        } else if (pasoActivo.estado === "En proceso") {
+                            btnAccion = `
+                                <div style="display:flex; gap:4px;">
+                                    <button class="outline warning" style="padding:4px 8px; margin:0;" onclick="cambiarEstado('${orden.id}', 'Pausado')">⏸️ Pausar</button>
+                                    <button class="outline success" style="padding:4px 8px; margin:0;" onclick="cambiarEstado('${orden.id}', 'Terminado')">✅ Cerrar</button>
+                                </div>
+                            `;
+                        } else if (pasoActivo.estado === "Pausado") {
+                            btnAccion = `<button class="outline" style="padding:4px 10px; margin:0;" onclick="cambiarEstado('${orden.id}', 'En proceso')">▶️ Reanudar</button>`;
+                        }
+                    } else {
+                        btnAccion = `<small style="color:gray; font-style:italic;">En espera de OP anterior</small>`;
+                    }
+
+                    let filaHTML = `
+                        <tr ${estiloFilaTurno}>
+                            <td><strong>${escaparCarga(orden.ot)} / ${escaparCarga(orden.pos)}</strong></td>
+                            <td>${escaparCarga(orden.cliente)}<br><small style="color:gray;">${escaparCarga(orden.nPlano)}</small></td>
+                            <td>
+                                <span style="font-weight:bold; color:#268bd2;">${escaparCarga(orden.producto)}</span>
+                                ${htmlRutaVisual}
+                            </td>
+                            <td>${escaparCarga(orden.cantidad)}</td>
+                            <td>${celdaFecha}</td>
+                            <td>
+                                <span class="badge" style="background-color:#232e3c;">${escaparCarga(pasoActivo.estado)}</span>
+                                <br><small>${escaparCarga(pasoActivo.asignadoA)}</small>
+                                ${cartelMiTurno}
+                            </td>
+                            <td>
+                                <div style="display:flex; gap:8px; align-items:center;">
+                                    ${btnAccion}
+                                    <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                                        <div style="display:flex; gap:4px;">
+                                            <button class="outline" style="padding:2px 6px; margin:0; font-size:0.75rem; line-height:1;" onclick="imprimirOrden('${orden.id}')" title="Imprimir Hoja de Ruta">🖨️</button>
+                                            <button class="outline" style="padding:2px 6px; margin:0; font-size:0.75rem; line-height:1; border-color:${colorBotonPlano}; color:${colorBotonPlano};" ${tieneArchivo ? '' : 'disabled'} onclick="abrirVisor3DDesdeTabla('${orden.id}')" title="${tituloBotonPlano}">${iconoBotonPlano}</button>
+                                        </div>
+                                        ${esAdmin ? `
+                                            <div style="display:flex; gap:4px;">
+                                                <button class="outline contrast" style="padding:2px 6px; margin:0;" onclick="editarOrden('${orden.id}')">✏️</button>
+                                                <button class="outline" style="padding:2px 6px; margin:0; border-color:#d93526; color:#d93526;" onclick="eliminarOrden('${orden.id}')">🗑️</button>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    tablaActivasHTML.innerHTML += filaHTML;
+                } else {
+                    let filaHistorialHTML = `
+                        <tr>
+                            <td><strong>${escaparCarga(orden.ot)} / ${escaparCarga(orden.pos)}</strong></td>
+                            <td>${escaparCarga(orden.cliente)}<br><small style="color:gray;">${escaparCarga(orden.nPlano)}</small></td>
+                            <td>
+                                <span style="font-weight:bold; color:#2aa198;">${escaparCarga(orden.producto)}</span>
+                                ${htmlRutaVisual}
+                            </td>
+                            <td>${escaparCarga(orden.cantidad)}</td>
+                            <td>${escaparCarga(orden.fechaFin || '---')}</td>
+                            <td>${formatoTiempo(tiempoTotalRuta)}</td>
+                            <td>
+                                <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                                    <div style="display:flex; gap:4px;">
+                                        <button class="outline" style="padding:2px 6px; margin:0; font-size:0.75rem; line-height:1;" onclick="imprimirOrden('${orden.id}')" title="Imprimir Hoja de Ruta">🖨️</button>
+                                        <button class="outline" style="padding:2px 6px; margin:0; font-size:0.75rem; line-height:1; border-color:${colorBotonPlano}; color:${colorBotonPlano};" ${tieneArchivo ? '' : 'disabled'} onclick="abrirVisor3DDesdeTabla('${orden.id}')" title="${tituloBotonPlano}">${iconoBotonPlano}</button>
+                                    </div>
+                                    ${esAdmin ? `
+                                        <div style="display:flex; gap:4px;">
+                                            <button class="outline contrast" style="padding:2px 6px; margin:0;" onclick="editarOrden('${orden.id}')">✏️</button>
+                                            <button class="outline" style="padding:2px 6px; margin:0; border-color:#d93526; color:#d93526;" onclick="eliminarOrden('${orden.id}')">🗑️</button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    tablaHistorialHTML.innerHTML += filaHistorialHTML;
+                }
+            });
+        }
+    </script>
+<script src="logic.js"></script><script src="acceso.js"></script>
+</body></html>
